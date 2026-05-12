@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-coral: #FF5555;
+  --color-brand-gold: #FDB813;
+  --color-brand-black: #0a0a0a;
+  --font-outfit: "Outfit", sans-serif;
+  --font-inter: "Inter", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-black text-white antialiased;
+  }
+}
+
+@layer components {
+  .bento-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6;
+  }
+
+  .bento-card {
+    @apply bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/[0.08] transition-all duration-300;
+  }
+
+  .status-badge {
+    @apply px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider;
+  }
+
+  .status-badge-pending {
+    @apply bg-white/10 text-white/60;
+  }
+
+  .status-badge-voted {
+    @apply bg-brand-coral/20 text-brand-coral border border-brand-coral/30;
+  }
+
+  .btn-primary {
+    @apply bg-brand-coral text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-white hover:text-black transition-all active:scale-95 shadow-[0_0_20px_rgba(255,85,85,0.3)];
+  }
+}
+
+dialog {
+  @apply m-auto border-none outline-none;
+}
+
+dialog::backdrop {
+  @apply bg-black/80 backdrop-blur-md;
+}

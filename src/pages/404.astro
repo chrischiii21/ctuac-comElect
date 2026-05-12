@@ -1,0 +1,50 @@
+---
+import VoterLayout from '../layouts/VoterLayout.astro';
+import { FileQuestion, ArrowLeft } from 'lucide-react';
+---
+
+<VoterLayout title="Page Not Found">
+	<div class="relative w-full max-w-lg text-center space-y-12 py-20 px-6">
+		<!-- Background Glow -->
+		<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-brand-coral/20 blur-[100px] -z-10 rounded-full"></div>
+		
+		<!-- Icon with animation -->
+		<div class="flex justify-center">
+			<div class="w-24 h-24 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center text-brand-coral animate-bounce-subtle">
+				<FileQuestion size={48} />
+			</div>
+		</div>
+
+		<div class="space-y-4">
+			<h1 class="text-6xl md:text-8xl font-outfit font-bold tracking-tighter text-white">404</h1>
+			<h2 class="text-2xl font-outfit font-semibold text-white/80">Section Not Found</h2>
+			<p class="text-white/40 max-w-xs mx-auto leading-relaxed">
+				The voting link you followed might be broken, expired, or the section has been removed by an administrator.
+			</p>
+		</div>
+
+		<div class="flex justify-center pt-8">
+			<button 
+				onclick="history.back()" 
+				class="w-full sm:w-auto px-12 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all flex items-center justify-center gap-3 text-white/60 hover:text-white font-semibold group"
+			>
+				<ArrowLeft size={20} class="group-hover:-translate-x-1 transition-transform" />
+				<span>Go Back to Previous Page</span>
+			</button>
+		</div>
+
+		<div class="pt-24">
+			<p class="text-[10px] uppercase tracking-[0.3em] text-white/10 font-bold">CTU COMELEC • Official Election Portal</p>
+		</div>
+	</div>
+</VoterLayout>
+
+<style>
+	@keyframes bounce-subtle {
+		0%, 100% { transform: translateY(0); }
+		50% { transform: translateY(-10px); }
+	}
+	.animate-bounce-subtle {
+		animation: bounce-subtle 3s ease-in-out infinite;
+	}
+</style>

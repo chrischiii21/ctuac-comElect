@@ -1,7 +1,7 @@
-import { c as createComponent } from './astro-component_xRsAqXiC.mjs';
+import { c as createComponent } from './astro-component_C3DWg1k6.mjs';
 import 'piccolore';
-import { n as renderComponent, r as renderTemplate, m as maybeRenderHead } from './entrypoint_DSpk13x0.mjs';
-import { $ as $$VoterLayout } from './VoterLayout_DDpHzANs.mjs';
+import { n as renderComponent, r as renderTemplate, m as maybeRenderHead } from './entrypoint_DHDXgHmb.mjs';
+import { $ as $$VoterLayout } from './VoterLayout_CQmdaQGK.mjs';
 import { Landmark } from 'lucide-react';
 
 const $$Index = createComponent(($$result, $$props, $$slots) => {

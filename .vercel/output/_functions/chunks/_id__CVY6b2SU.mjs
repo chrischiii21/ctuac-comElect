@@ -1,7 +1,7 @@
-import { c as createComponent } from './astro-component_xRsAqXiC.mjs';
+import { c as createComponent } from './astro-component_C3DWg1k6.mjs';
 import 'piccolore';
-import { n as renderComponent, r as renderTemplate, m as maybeRenderHead, h as addAttribute } from './entrypoint_DSpk13x0.mjs';
-import { $ as $$AdminLayout } from './AdminLayout_CCkRj1Iw.mjs';
+import { n as renderComponent, r as renderTemplate, m as maybeRenderHead, h as addAttribute } from './entrypoint_DHDXgHmb.mjs';
+import { $ as $$AdminLayout } from './AdminLayout_UhH9Bjpn.mjs';
 import { s as supabase, g as getSupabaseAdmin } from './supabase_DWl81F3w.mjs';
 import { S as SectionStatus } from './SectionStatus_B61OPlsi.mjs';
 import { ChevronLeft, Share2, Trash2 } from 'lucide-react';

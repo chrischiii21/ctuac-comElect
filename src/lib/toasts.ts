@@ -37,3 +37,9 @@ export function checkUrlMessages() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
+
+export function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
+  if (type === 'success') toast.success(message);
+  else if (type === 'error') toast.error(message);
+  else toast(message);
+}

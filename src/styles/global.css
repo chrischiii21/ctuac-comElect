@@ -1,12 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --color-brand-coral: #FF5555;
-  --color-brand-gold: #FDB813;
-  --color-brand-black: #0a0a0a;
-  --font-outfit: "Outfit", sans-serif;
-  --font-inter: "Inter", sans-serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   body {

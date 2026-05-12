@@ -1,0 +1,1 @@
+import"./hoisted.Cncekc7b.js";import"./toasts.DTpQMfWf.js";import"./index.Ckm1FQso.js";import"./index.DGbRx3yF.js";import"./index.DOJto88o.js";const o=document.getElementById("upload-modal");o?.addEventListener("click",t=>{const i=o.getBoundingClientRect();(t.clientX<i.left||t.clientX>i.right||t.clientY<i.top||t.clientY>i.bottom)&&o.close()});

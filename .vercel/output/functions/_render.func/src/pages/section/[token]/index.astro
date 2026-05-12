@@ -1,0 +1,116 @@
+---
+import VoterLayout from '../../../layouts/VoterLayout.astro';
+import SectionStatus from '../../../components/SectionStatus';
+import { supabase } from '../../../lib/supabase';
+import { Check, UserCheck, ShieldCheck, ArrowRight } from 'lucide-react';
+
+const { token } = Astro.params;
+
+// 1. Fetch Section
+const { data: section, error: sectionError } = await supabase
+  .from('sections')
+  .select('*')
+  .eq('token', token)
+  .single();
+
+if (sectionError || !section) {
+  return Astro.redirect('/404');
+}
+
+// 2. Fetch Students
+const { data: students } = await supabase
+  .from('students')
+  .select('*')
+  .eq('section_id', section.id)
+  .order('full_name');
+
+// 3. Handle Identity Verification
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const studentId = formData.get('studentId');
+
+  if (studentId) {
+    return Astro.redirect(`/section/${token}/ballot?studentId=${studentId}`);
+  }
+}
+---
+
+<VoterLayout title={`${section.name} | Live Turnout`}>
+	<div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+		
+		<!-- Left Side: Branding & Info -->
+		<div class="space-y-8">
+			<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-coral/10 text-brand-coral text-[10px] font-bold uppercase tracking-widest border border-brand-coral/20">
+				<span class="relative flex h-2 w-2">
+					<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-coral/40 opacity-75"></span>
+					<span class="relative inline-flex rounded-full h-2 w-2 bg-brand-coral"></span>
+				</span>
+				Election Live
+			</div>
+			
+			<div class="space-y-4">
+				<h1 class="text-5xl md:text-7xl font-outfit font-bold tracking-tighter leading-none">
+					{section.name} <br/>
+					<span class="text-white/20">Voter Turnout</span>
+				</h1>
+				<p class="text-white/40 text-lg max-w-sm">
+					Transparent, real-time election monitoring for the CTU Student Government.
+				</p>
+			</div>
+
+			{Astro.url.searchParams.has('success') && (
+				<div class="p-6 bg-brand-coral/10 border border-brand-coral/20 rounded-2xl flex items-center gap-4 text-brand-coral">
+					<Check size={24} />
+					<div>
+						<div class="font-bold">Vote Successfully Cast!</div>
+						<div class="text-xs opacity-60">Thank you for participating in the election.</div>
+					</div>
+				</div>
+			)}
+
+			{Astro.url.searchParams.has('error') && (
+				<div class="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 text-red-400">
+					<div class="font-bold">Error: {Astro.url.searchParams.get('error') === 'already_voted' ? 'You have already voted.' : 'An error occurred.'}</div>
+				</div>
+			)}
+
+			<div class="bento-card bg-white/[0.03] border-white/5 p-8 max-w-sm">
+				<h2 class="font-semibold mb-4 flex items-center gap-2">
+					Cast Your Ballot
+				</h2>
+				<form method="POST" class="space-y-4">
+					<div class="space-y-2">
+						<label class="text-[10px] font-bold uppercase tracking-widest text-white/20">Verify Identity</label>
+						<select name="studentId" required class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors appearance-none">
+							<option value="">Select your name...</option>
+							{students?.filter(s => !s.has_voted).map(s => (
+								<option value={s.student_id}>{s.full_name}</option>
+							))}
+						</select>
+					</div>
+					<button type="submit" class="w-full btn-primary py-4 rounded-xl">
+						Confirm & Vote
+					</button>
+					<p class="text-[10px] text-center text-white/10 italic">
+						*Once submitted, your status will update instantly.
+					</p>
+				</form>
+			</div>
+		</div>
+
+		<!-- Right Side: Real-time Island -->
+		<div class="w-full">
+			<SectionStatus client:load sectionId={section.id} initialStudents={students || []} />
+		</div>
+
+	</div>
+</VoterLayout>
+
+<style>
+	select {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white' opacity='0.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 1rem center;
+		background-size: 1.5em;
+	}
+</style>

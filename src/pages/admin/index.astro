@@ -144,6 +144,40 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 					/>
 				</div>
 				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Program / Department</label>
+					<select name="program" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors appearance-none text-white">
+						<optgroup label="College of Education (CoEd)">
+							<option value="BEED">BEED</option>
+							<option value="BSED - Math">BSED - Math</option>
+							<option value="BSED - English">BSED - English</option>
+							<option value="BTLED">BTLED</option>
+						</optgroup>
+						<optgroup label="Hospitality Management (CHMT)">
+							<option value="BSTM">BSTM</option>
+							<option value="BSHM">BSHM</option>
+						</optgroup>
+						<optgroup label="Arts and Sciences (CAS)">
+							<option value="BAEL">BAEL</option>
+							<option value="BAL">BAL</option>
+							<option value="BSP">BSP</option>
+						</optgroup>
+						<optgroup label="Agriculture & Forestry (CAFE)">
+							<option value="BSA">BSA</option>
+							<option value="BSF">BSF</option>
+							<option value="BSES">BSES</option>
+						</optgroup>
+						<optgroup label="Technology & Engineering (COTE)">
+							<option value="BIT-AT">BIT-AT</option>
+							<option value="BIT-ET">BIT-ET</option>
+							<option value="BIT-CT">BIT-CT</option>
+							<option value="BIT-GT">BIT-GT</option>
+							<option value="BIT-DT">BIT-DT</option>
+							<option value="BSIT">BSIT</option>
+							<option value="BSIE">BSIE</option>
+						</optgroup>
+					</select>
+				</div>
+				<div class="space-y-2">
 					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">CSV File</label>
 					<label class="block w-full border-2 border-dashed border-white/10 rounded-2xl p-8 hover:border-brand-coral/50 hover:bg-brand-coral/5 transition-all cursor-pointer group">
 						<input 
@@ -171,6 +205,28 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 		</div>
 	</dialog>
 </AdminLayout>
+
+<style>
+	select {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white' opacity='0.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 1rem center;
+		background-size: 1.5em;
+	}
+
+	select option, select optgroup {
+		background-color: #0A0A0A;
+		color: white;
+		padding: 1rem;
+	}
+
+	select optgroup {
+		font-weight: bold;
+		color: #FF5555; /* brand-coral */
+		font-style: normal;
+		margin-top: 0.5rem;
+	}
+</style>
 
 <script>
 	// Modal backdrop click to close

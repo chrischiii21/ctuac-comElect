@@ -24,6 +24,31 @@ if (Astro.request.method === 'POST') {
 
   if (action === 'delete') {
     const adminSupabase = getSupabaseAdmin();
+    
+    // 1. Fetch all votes from this section to deduct them from candidates
+    const { data: votes } = await adminSupabase.from('votes').select('candidate_id').eq('section_id', id);
+    
+    if (votes && votes.length > 0) {
+      const tallies = votes.reduce((acc, v) => {
+        acc[v.candidate_id] = (acc[v.candidate_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Deduct votes from candidates
+      for (const [candId, count] of Object.entries(tallies)) {
+        // We use a direct update here for simplicity, but an RPC is recommended for production
+        const { data: cand } = await adminSupabase.from('candidates').select('vote_count').eq('id', candId).single();
+        if (cand) {
+          await adminSupabase.from('candidates')
+            .update({ vote_count: Math.max(0, cand.vote_count - count) })
+            .eq('id', candId);
+        }
+      }
+    }
+
+    // 2. Explicitly delete votes from this section
+    await adminSupabase.from('votes').delete().eq('section_id', id);
+
     const { error: deleteError } = await adminSupabase.from('sections').delete().eq('id', id);
     
     if (deleteError) {
@@ -55,11 +80,45 @@ const voteCounts = (sectionVotes || []).reduce((acc, v) => {
   return acc;
 }, {} as Record<string, number>);
 
-const groupedResults = (candidates || []).reduce((acc, c) => {
+const collegeMapping: Record<string, string> = {
+  'BEED': 'CoEd', 'BSED - Math': 'CoEd', 'BSED - English': 'CoEd', 'BTLED': 'CoEd',
+  'BSTM': 'CHMT', 'BSHM': 'CHMT',
+  'BAEL': 'CAS', 'BAL': 'CAS', 'BSP': 'CAS',
+  'BSA': 'CAFE', 'BSF': 'CAFE', 'BSES': 'CAFE',
+  'BIT-AT': 'COTE', 'BIT-ET': 'COTE', 'BIT-CT': 'COTE', 'BIT-GT': 'COTE', 'BIT-DT': 'COTE', 'BSIT': 'COTE', 'BSIE': 'COTE',
+};
+
+const sectionProgram = section.program || '';
+const sectionCollege = collegeMapping[sectionProgram] || '';
+
+const filteredCandidates = (candidates || []).filter(c => {
+  const pos = c.position.toLowerCase();
+  if (pos === 'president' || pos === 'vice president') return true;
+  if (pos.includes('senator')) return pos.includes(sectionCollege.toLowerCase());
+  if (pos.includes('hr')) return pos.includes(sectionProgram.toLowerCase());
+  return false;
+});
+
+const groupedResults = filteredCandidates.reduce((acc, c) => {
   if (!acc[c.position]) acc[c.position] = [];
   acc[c.position].push({ ...c, sectionVotes: voteCounts[c.id] || 0 });
   return acc;
 }, {} as Record<string, any[]>);
+
+const positionPriority = (pos: string) => {
+  if (pos === 'President') return 0;
+  if (pos === 'Vice President') return 1;
+  if (pos.toLowerCase().includes('senator')) return 2;
+  if (pos.toLowerCase().includes('hr')) return 3;
+  return 4;
+};
+
+const sortedPositions = Object.keys(groupedResults).sort((a, b) => {
+  const priorityA = positionPriority(a);
+  const priorityB = positionPriority(b);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+  return a.localeCompare(b);
+});
 ---
 
 <AdminLayout title={`${section.name} Details`}>
@@ -78,7 +137,7 @@ const groupedResults = (candidates || []).reduce((acc, c) => {
 					<h1 class="text-4xl font-outfit font-bold">{section.name}</h1>
 					<div class="status-badge status-badge-voted">Active</div>
 				</div>
-				<p class="text-white/40 font-mono text-xs uppercase tracking-widest">Section ID: {section.id}</p>
+				<p class="text-white/40 font-mono text-xs uppercase tracking-widest">Program: {section.program || 'General'}</p>
 			</div>
 			
 			<div class="flex gap-3">
@@ -147,9 +206,9 @@ const groupedResults = (candidates || []).reduce((acc, c) => {
 			</div>
 
 			<div class="bento-card">
-				<div class="text-[10px] font-bold uppercase tracking-widest text-white/20 mb-2">Public Token</div>
-				<div class="text-xs font-mono break-all mt-4 text-white/60">{section.token}</div>
-				<div class="text-[10px] text-white/20 mt-2">Used for secure voting URLs</div>
+				<div class="text-[10px] font-bold uppercase tracking-widest text-white/20 mb-2">Program Scope</div>
+				<div class="text-3xl font-outfit font-bold text-brand-coral">{section.program || 'N/A'}</div>
+				<div class="text-[10px] text-white/20 mt-2 uppercase tracking-tighter">Voter Scope: {collegeMapping[section.program] || 'General'}</div>
 			</div>
 		</div>
 
@@ -161,32 +220,42 @@ const groupedResults = (candidates || []).reduce((acc, c) => {
 			</header>
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-				{Object.entries(groupedResults).map(([position, list]) => (
-					<div class="space-y-4">
-						<h3 class="text-xs font-bold uppercase tracking-[0.3em] text-white/20 border-b border-white/5 pb-2">{position}</h3>
+				{sortedPositions.map((position) => {
+					const list = groupedResults[position];
+					const maxPosVotes = Math.max(...list.map((c: any) => c.sectionVotes), 0);
+
+					return (
 						<div class="space-y-4">
-							{list.map((c: any) => {
-								const percentage = votedCount > 0 ? Math.round((c.sectionVotes / votedCount) * 100) : 0;
-								return (
-									<div class="space-y-2">
-										<div class="flex justify-between items-end">
-											<div class="flex items-center gap-3">
-												<div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold">
-													{c.name.charAt(0)}
+							<h3 class="text-xs font-bold uppercase tracking-[0.3em] text-white/20 border-b border-white/5 pb-2">{position}</h3>
+							<div class="space-y-2">
+								{list.map((c: any) => {
+									const percentage = votedCount > 0 ? Math.round((c.sectionVotes / votedCount) * 100) : 0;
+									const isLeading = c.sectionVotes > 0 && c.sectionVotes === maxPosVotes;
+
+									return (
+										<div class={`p-3 rounded-2xl transition-all ${isLeading ? 'bg-emerald-500/10 ring-1 ring-emerald-500/20' : ''}`}>
+											<div class="flex justify-between items-end mb-2">
+												<div class="flex items-center gap-3">
+													<div class={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${isLeading ? 'bg-emerald-500 text-white' : 'bg-white/5 text-white/20'}`}>
+														{c.name.charAt(0)}
+													</div>
+													<div class="flex flex-col">
+														<span class={`font-medium text-sm ${isLeading ? 'text-emerald-400' : 'text-white'}`}>{c.name}</span>
+														{isLeading && <span class="text-[8px] font-bold text-emerald-500 uppercase">Section Leader</span>}
+													</div>
 												</div>
-												<span class="font-medium text-sm">{c.name}</span>
+												<span class={`text-xs font-mono font-bold ${isLeading ? 'text-emerald-400' : 'text-white/40'}`}>{c.sectionVotes} Votes ({percentage}%)</span>
 											</div>
-											<span class="text-xs font-mono font-bold text-white/40">{c.sectionVotes} Votes ({percentage}%)</span>
+											<div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+												<div class={`h-full transition-all duration-500 ${isLeading ? 'bg-emerald-500' : 'bg-white/10'}`} style={`width: ${percentage}%`}></div>
+											</div>
 										</div>
-										<div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-											<div class="h-full bg-emerald-500 transition-all duration-500" style={`width: ${percentage}%`}></div>
-										</div>
-									</div>
-								);
-							})}
+									);
+								})}
+							</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
 		</div>
 

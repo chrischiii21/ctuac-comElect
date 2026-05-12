@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getSupabaseAdmin } from '../../lib/supabase';
-import { UserPlus, Trophy, Trash2, Landmark } from 'lucide-react';
+import { UserPlus, Trophy, Trash2, Landmark, Pencil } from 'lucide-react';
 
 // Fetch Candidates
 const { data: candidates } = await supabase.from('candidates').select('*').order('position');
@@ -44,14 +44,55 @@ if (Astro.request.method === 'POST') {
 
 		return Astro.redirect('/admin/candidates?success=candidate_deleted');
 	}
+
+	if (action === 'edit') {
+		const name = formData.get('name');
+		const position = formData.get('position');
+		const image_url = formData.get('image_url');
+		
+		const admin = getSupabaseAdmin();
+		const { error } = await admin.from('candidates').update({ 
+			name, 
+			position, 
+			image_url: image_url || null 
+		}).eq('id', id);
+
+		if (error) {
+			console.error('Error updating candidate:', error);
+			return Astro.redirect('/admin/candidates?error=update_failed');
+		}
+
+		return Astro.redirect('/admin/candidates?success=candidate_updated');
+	}
 }
 
 // Group candidates by position
+const positionPriority = (pos: string) => {
+  if (pos === 'President') return 0;
+  if (pos === 'Vice President') return 1;
+  if (pos.toLowerCase().includes('senator')) return 2;
+  if (pos.toLowerCase().includes('hr')) return 3;
+  return 4;
+};
+
+const categories = [
+  { name: 'Executive Board', filter: (pos: string) => pos === 'President' || pos === 'Vice President' },
+  { name: 'Senatorial Race', filter: (pos: string) => pos.toLowerCase().includes('senator') },
+  { name: 'House Representatives', filter: (pos: string) => pos.toLowerCase().includes('hr') },
+];
+
 const groupedCandidates = candidates?.reduce((acc, candidate) => {
   if (!acc[candidate.position]) acc[candidate.position] = [];
   acc[candidate.position].push(candidate);
   return acc;
 }, {} as Record<string, any[]>) || {};
+
+const sortedPositions = Object.keys(groupedCandidates).sort((a, b) => {
+  const priorityA = positionPriority(a);
+  const priorityB = positionPriority(b);
+  if (priorityA !== priorityB) return priorityA - priorityB;
+  return a.localeCompare(b);
+});
 ---
 
 <AdminLayout title="Candidate Management">
@@ -79,41 +120,69 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 					</div>
 				)}
 
-				{Object.entries(groupedCandidates).map(([position, list]) => (
-					<section class="space-y-6">
-						<h2 class="text-xs font-bold uppercase tracking-[0.3em] text-white/20 border-b border-white/5 pb-4">{position}</h2>
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{list.map((candidate) => (
-								<div class="bento-card group flex items-center justify-between">
-									<div class="flex items-center gap-4">
-										<div class="relative">
-											{candidate.image_url ? (
-												<img src={candidate.image_url} alt={candidate.name} class="w-12 h-12 rounded-full object-cover border-2 border-white/10 group-hover:border-brand-coral transition-colors shadow-lg" />
-											) : (
-												<div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-white/20 font-bold group-hover:text-brand-coral transition-colors">
-													{candidate.name.charAt(0)}
-												</div>
-											)}
-										</div>
-										<div>
-											<div class="font-bold">{candidate.name}</div>
-											<div class="text-[10px] text-white/20 uppercase tracking-widest">{candidate.vote_count || 0} Votes</div>
-										</div>
-									</div>
-									<div class="flex items-center gap-2">
-										<button 
-											class="p-2 text-white/20 hover:text-red-500 transition-colors delete-btn"
-											data-id={candidate.id}
-											data-name={candidate.name}
-										>
-											<Trash2 size={18} />
-										</button>
-									</div>
-								</div>
-							))}
+				{categories.map((cat) => {
+					const catPositions = sortedPositions.filter(cat.filter);
+					if (catPositions.length === 0) return null;
+
+					return (
+						<div class="space-y-8 pb-12">
+							<div class="flex items-center gap-4">
+								<h2 class="text-2xl font-outfit font-bold text-emerald-500 whitespace-nowrap">{cat.name}</h2>
+								<div class="h-px bg-emerald-500/10 w-full"></div>
+							</div>
+							
+							<div class="space-y-12">
+								{catPositions.map((position) => {
+									const list = groupedCandidates[position];
+									return (
+										<section class="space-y-6">
+											<h3 class="text-xs font-bold uppercase tracking-[0.3em] text-white/20 border-b border-white/5 pb-4">{position}</h3>
+											<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+												{list.map((candidate) => (
+													<div class="bento-card group flex items-center justify-between">
+														<div class="flex items-center gap-4">
+															<div class="relative">
+																{candidate.image_url ? (
+																	<img src={candidate.image_url} alt={candidate.name} class="w-12 h-12 rounded-full object-cover border-2 border-white/10 group-hover:border-brand-coral transition-colors shadow-lg" />
+																) : (
+																	<div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-white/20 font-bold group-hover:text-brand-coral transition-colors">
+																		{candidate.name.charAt(0)}
+																	</div>
+																)}
+															</div>
+															<div>
+																<div class="font-bold">{candidate.name}</div>
+																<div class="text-[10px] text-white/20 uppercase tracking-widest">{candidate.vote_count || 0} Votes</div>
+															</div>
+														</div>
+														<div class="flex items-center gap-2">
+															<button 
+																class="p-2 text-white/20 hover:text-emerald-500 transition-colors edit-btn"
+																data-id={candidate.id}
+																data-name={candidate.name}
+																data-position={candidate.position}
+																data-image={candidate.image_url}
+															>
+																<Pencil size={18} />
+															</button>
+															<button 
+																class="p-2 text-white/20 hover:text-red-500 transition-colors delete-btn"
+																data-id={candidate.id}
+																data-name={candidate.name}
+															>
+																<Trash2 size={18} />
+															</button>
+														</div>
+													</div>
+												))}
+											</div>
+										</section>
+									);
+								})}
+							</div>
 						</div>
-					</section>
-				))}
+					);
+				})}
 			</div>
 
 			<aside class="space-y-6 h-fit sticky top-28">
@@ -210,6 +279,70 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 			</form>
 		</div>
 	</dialog>
+
+	<!-- Edit Candidate Modal -->
+	<dialog id="edit-candidate-modal" class="bg-brand-black border border-white/10 rounded-3xl p-0 overflow-hidden max-w-md w-full">
+		<div class="p-8">
+			<h3 class="text-2xl font-outfit font-semibold mb-6 text-white">Edit Candidate</h3>
+			<form method="POST" class="space-y-6">
+				<input type="hidden" name="action" value="edit" />
+				<input type="hidden" name="id" value="" />
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Full Name</label>
+					<input 
+						type="text" 
+						name="name" 
+						required 
+						class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors text-white" 
+					/>
+				</div>
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Position</label>
+					<select name="position" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors appearance-none text-white">
+						<option value="President">President</option>
+						<option value="Vice President">Vice President</option>
+						<option value="CoEd Senator">CoEd Senator</option>
+						<option value="CHMT Senator">CHMT Senator</option>
+						<option value="CAS Senator">CAS Senator</option>
+						<option value="CAFE Senator">CAFE Senator</option>
+						<option value="COTE Senator">COTE Senator</option>
+						<option value="BEED HR">BEED HR</option>
+						<option value="BSED - Math HR">BSED - Math HR</option>
+						<option value="BSED - English HR">BSED - English HR</option>
+						<option value="BTLED HR">BTLED HR</option>
+						<option value="BSTM HR">BSTM HR</option>
+						<option value="BSHM HR">BSHM HR</option>
+						<option value="BAEL HR">BAEL HR</option>
+						<option value="BAL HR">BAL HR</option>
+						<option value="BSP HR">BSP HR</option>
+						<option value="BSA HR">BSA HR</option>
+						<option value="BSF HR">BSF HR</option>
+						<option value="BSES HR">BSES HR</option>
+						<option value="BIT-AT HR">BIT-AT HR</option>
+						<option value="BIT-ET HR">BIT-ET HR</option>
+						<option value="BIT-CT HR">BIT-CT HR</option>
+						<option value="BIT-GT HR">BIT-GT HR</option>
+						<option value="BIT-DT HR">BIT-DT HR</option>
+						<option value="BSIT HR">BSIT HR</option>
+						<option value="BSIE HR">BSIE HR</option>
+					</select>
+				</div>
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Image URL (Optional)</label>
+					<input 
+						type="url" 
+						name="image_url" 
+						placeholder="https://..." 
+						class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors text-white placeholder:text-white/20" 
+					/>
+				</div>
+				<div class="flex gap-4 pt-4">
+					<button type="button" onclick="this.closest('dialog').close()" class="flex-1 px-6 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-colors">Cancel</button>
+					<button type="submit" class="flex-1 btn-primary">Save Changes</button>
+				</div>
+			</form>
+		</div>
+	</dialog>
 </AdminLayout>
 
 <style>
@@ -220,10 +353,17 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 		background-size: 1.5em;
 	}
 
-	select option {
+	select option, select optgroup {
 		background-color: #0A0A0A; /* brand-black equivalent */
 		color: white;
 		padding: 1rem;
+	}
+
+	select optgroup {
+		font-weight: bold;
+		color: #FF5555; /* brand-coral */
+		font-style: normal;
+		margin-top: 0.5rem;
 	}
 </style>
 
@@ -245,6 +385,28 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 				if (idInput) idInput.value = id || '';
 				
 				deleteModal.showModal();
+			}
+		});
+	});
+
+	// Handle Edit Modal
+	const editButtons = document.querySelectorAll('.edit-btn');
+	const editModal = document.getElementById('edit-candidate-modal') as HTMLDialogElement;
+
+	editButtons.forEach(btn => {
+		btn.addEventListener('click', () => {
+			const id = btn.getAttribute('data-id');
+			const name = btn.getAttribute('data-name');
+			const position = btn.getAttribute('data-position');
+			const image = btn.getAttribute('data-image');
+
+			if (editModal) {
+				(editModal.querySelector('input[name="id"]') as HTMLInputElement).value = id || '';
+				(editModal.querySelector('input[name="name"]') as HTMLInputElement).value = name || '';
+				(editModal.querySelector('select[name="position"]') as HTMLSelectElement).value = position || '';
+				(editModal.querySelector('input[name="image_url"]') as HTMLInputElement).value = image || '';
+				
+				editModal.showModal();
 			}
 		});
 	});

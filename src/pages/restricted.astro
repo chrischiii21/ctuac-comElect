@@ -1,0 +1,43 @@
+---
+import VoterLayout from '../layouts/VoterLayout.astro';
+import { ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
+---
+
+<VoterLayout title="Access Restricted | COMELEC">
+	<div class="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-8 max-w-md mx-auto">
+		<!-- Animated Icon Container -->
+		<div class="relative">
+			<div class="w-24 h-24 bg-red-500/10 rounded-3xl flex items-center justify-center text-red-500 relative z-10 animate-pulse">
+				<ShieldAlert size={48} />
+			</div>
+			<!-- Decorative Background Glow -->
+			<div class="absolute inset-0 bg-red-500/20 blur-3xl -z-10 rounded-full"></div>
+		</div>
+
+		<div class="space-y-4">
+			<h1 class="text-4xl font-outfit font-bold tracking-tight">Access Restricted</h1>
+			<p class="text-white/40 leading-relaxed">
+				You are attempting to access a protected administrative area. This section is reserved for authorized COMELEC personnel only.
+			</p>
+		</div>
+
+		<div class="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+
+		<div class="space-y-6 w-full">
+			<div class="flex items-center justify-center gap-3 text-xs font-mono text-white/20 uppercase tracking-[0.2em]">
+				<Lock size={12} />
+				<span>Secure Environment</span>
+			</div>
+			
+			<div class="flex flex-col gap-3">
+				<a href="/" class="btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 group">
+					<ArrowLeft size={18} class="group-hover:-translate-x-1 transition-transform" />
+					Return to Safety
+				</a>
+				<p class="text-[10px] text-white/10 italic">
+					Your attempt has been logged for security purposes.
+				</p>
+			</div>
+		</div>
+	</div>
+</VoterLayout>

@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '../../lib/supabase';
 export const POST: APIRoute = async ({ request, redirect }) => {
   const formData = await request.formData();
   const sectionName = formData.get('sectionName') as string;
+  const program = formData.get('program') as string;
   const csvFile = formData.get('csvFile') as File;
 
   if (!sectionName || !csvFile) {
@@ -15,7 +16,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   // 1. Create the section
   const { data: section, error: sectionError } = await supabase
     .from('sections')
-    .insert([{ name: sectionName }])
+    .insert([{ name: sectionName, program }])
     .select()
     .single();
 

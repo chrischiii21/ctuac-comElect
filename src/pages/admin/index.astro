@@ -5,7 +5,11 @@ import { BarChart3, Users, Landmark, Clock, Upload, Trophy } from 'lucide-react'
 import VoteStandings from '../../components/VoteStandings';
 
 // Fetch initial stats
-const { data: sections } = await supabase.from('sections').select('*');
+const { data: sections } = await supabase
+  .from('sections')
+  .select('*')
+  .eq('is_manual', false)
+  .order('created_at', { ascending: false });
 const { data: candidates } = await supabase.from('candidates').select('*').order('position');
 const { count: totalStudents } = await supabase.from('students').select('*', { count: 'exact', head: true });
 const { count: totalVoted } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('has_voted', true);

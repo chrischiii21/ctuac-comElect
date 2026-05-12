@@ -73,12 +73,22 @@ const turnout = totalCount > 0 ? Math.round((votedCount / totalCount) * 100) : 0
 // 4. Fetch Vote Breakdown for this section
 const adminSupabase = getSupabaseAdmin();
 const { data: candidates } = await adminSupabase.from('candidates').select('*').order('position');
-const { data: sectionVotes } = await adminSupabase.from('votes').select('candidate_id').eq('section_id', section.id);
 
-const voteCounts = (sectionVotes || []).reduce((acc, v) => {
-  acc[v.candidate_id] = (acc[v.candidate_id] || 0) + 1;
-  return acc;
-}, {} as Record<string, number>);
+let voteCounts: Record<string, number> = {};
+
+if (section.is_manual) {
+  const { data: manualTallies } = await adminSupabase.from('manual_tallies').select('candidate_id, votes').eq('section_id', section.id);
+  voteCounts = (manualTallies || []).reduce((acc, t) => {
+    acc[t.candidate_id] = (acc[t.candidate_id] || 0) + t.votes;
+    return acc;
+  }, {} as Record<string, number>);
+} else {
+  const { data: sectionVotes } = await adminSupabase.from('votes').select('candidate_id').eq('section_id', section.id);
+  voteCounts = (sectionVotes || []).reduce((acc, v) => {
+    acc[v.candidate_id] = (acc[v.candidate_id] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+}
 
 const collegeMapping: Record<string, string> = {
   'BEED': 'CoEd', 'BSED - Math': 'CoEd', 'BSED - English': 'CoEd', 'BTLED': 'CoEd',

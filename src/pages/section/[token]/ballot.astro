@@ -10,14 +10,22 @@ if (!studentId) {
   return Astro.redirect(`/section/${token}`);
 }
 
-// 1. Fetch Student & Section
+// 1. Fetch Election Status
+const { data: statusData } = await supabase.from('settings').select('value').eq('key', 'election_status').single();
+const isElectionActive = statusData?.value?.active ?? true;
+
+if (!isElectionActive) {
+  return Astro.redirect('/closed');
+}
+
+// 2. Fetch Student & Section
 const { data: section } = await supabase.from('sections').select('*').eq('token', token).single();
 
 if (!section) {
   return Astro.redirect('/');
 }
 
-const { data: student } = await supabase.from('students').select('*').eq('student_id', studentId).eq('section_id', section.id).single();
+const { data: student } = await supabase.from('students').select('*').eq('id', studentId).eq('section_id', section.id).single();
 
 if (!student || student.has_voted) {
   return Astro.redirect(`/section/${token}?error=already_voted`);
@@ -28,7 +36,7 @@ const { data: allCandidates } = await supabase.from('candidates').select('*').or
 
 const collegeMapping: Record<string, string> = {
   'BEED': 'CoEd', 'BSED - Math': 'CoEd', 'BSED - English': 'CoEd', 'BTLED': 'CoEd',
-  'BSTM': 'CHMT', 'BSHM': 'CHMT',
+  'BSTM': 'CHTM', 'BSHM': 'CHTM',
   'BAEL': 'CAS', 'BAL': 'CAS', 'BSP': 'CAS',
   'BSA': 'CAFE', 'BSF': 'CAFE', 'BSES': 'CAFE',
   'BIT-AT': 'COTE', 'BIT-ET': 'COTE', 'BIT-CT': 'COTE', 'BIT-GT': 'COTE', 'BIT-DT': 'COTE', 'BSIT': 'COTE', 'BSIE': 'COTE',

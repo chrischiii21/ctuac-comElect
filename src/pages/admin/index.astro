@@ -22,6 +22,9 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 	acc[c.position].push(c);
 	return acc;
 }, {} as Record<string, any[]>);
+// Fetch Election Status
+const { data: statusData } = await supabase.from('settings').select('value').eq('key', 'election_status').single();
+const isElectionActive = statusData?.value?.active ?? true;
 ---
 
 <AdminLayout title="Admin Overview">
@@ -29,13 +32,27 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 		<!-- Header Section -->
 		<header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
 			<div>
-				<h1 class="text-4xl md:text-5xl font-outfit font-semibold tracking-tight">System Overview</h1>
-				<p class="text-white/40 mt-2">Real-time election status and section management.</p>
+				<h1 class="text-4xl md:text-5xl font-outfit font-semibold tracking-tight">Online Standings</h1>
+				<p class="text-white/40 mt-2">Real-time counts for digital ballots only.</p>
 			</div>
-			<div class="flex gap-4">
+			<div class="flex flex-wrap gap-4">
+				<!-- Master Toggle Button -->
+				<button 
+					id="toggle-election-btn"
+					data-active={isElectionActive ? "true" : "false"}
+					class={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border ${isElectionActive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' : 'bg-brand-coral/10 border-brand-coral/20 text-brand-coral hover:bg-brand-coral/20'}`}
+				>
+					<div class={`w-2 h-2 rounded-full ${isElectionActive ? 'bg-emerald-500 animate-pulse' : 'bg-brand-coral'}`}></div>
+					<span>{isElectionActive ? 'System: Active' : 'System: Closed'}</span>
+				</button>
+
+				<a href="/admin/consolidated" class="bg-white/5 border border-white/10 px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-sm text-white/60">
+					<BarChart3 size={18} />
+					<span>Consolidated View</span>
+				</a>
 				<button class="btn-primary flex items-center gap-2" onclick="document.getElementById('upload-modal').showModal()">
 					<Upload size={18} />
-					<span>Upload CSV</span>
+					<span>Import Masterlist</span>
 				</button>
 			</div>
 		</header>
@@ -149,28 +166,29 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 				</div>
 				<div class="space-y-2">
 					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Program / Department</label>
-					<select name="program" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors appearance-none text-white">
-						<optgroup label="College of Education (CoEd)">
+					<select name="program" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors appearance-none text-white cursor-pointer">
+						<option value="" disabled selected class="bg-brand-black text-white/20">Select Department</option>
+						<optgroup label="College of Education (CoEd)" class="bg-brand-black">
 							<option value="BEED">BEED</option>
 							<option value="BSED - Math">BSED - Math</option>
 							<option value="BSED - English">BSED - English</option>
 							<option value="BTLED">BTLED</option>
 						</optgroup>
-						<optgroup label="Hospitality Management (CHMT)">
+						<optgroup label="Hospitality Management (CHTM)" class="bg-brand-black">
 							<option value="BSTM">BSTM</option>
 							<option value="BSHM">BSHM</option>
 						</optgroup>
-						<optgroup label="Arts and Sciences (CAS)">
+						<optgroup label="Arts and Sciences (CAS)" class="bg-brand-black">
 							<option value="BAEL">BAEL</option>
 							<option value="BAL">BAL</option>
 							<option value="BSP">BSP</option>
 						</optgroup>
-						<optgroup label="Agriculture & Forestry (CAFE)">
+						<optgroup label="Agriculture & Forestry (CAFE)" class="bg-brand-black">
 							<option value="BSA">BSA</option>
 							<option value="BSF">BSF</option>
 							<option value="BSES">BSES</option>
 						</optgroup>
-						<optgroup label="Technology & Engineering (COTE)">
+						<optgroup label="Technology & Engineering (COTE)" class="bg-brand-black">
 							<option value="BIT-AT">BIT-AT</option>
 							<option value="BIT-ET">BIT-ET</option>
 							<option value="BIT-CT">BIT-CT</option>
@@ -208,6 +226,48 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 			</form>
 		</div>
 	</dialog>
+	<script>
+		const toggleBtn = document.getElementById('toggle-election-btn');
+		
+		toggleBtn?.addEventListener('click', async () => {
+			const isActive = toggleBtn.getAttribute('data-active') === 'true';
+			const newActive = !isActive;
+			
+			// Show loading state
+			toggleBtn.style.opacity = '0.5';
+			toggleBtn.style.pointerEvents = 'none';
+			
+			try {
+				const res = await fetch('/api/toggle-election', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ active: newActive })
+				});
+				
+				if (res.ok) {
+					// Update UI
+					toggleBtn.setAttribute('data-active', newActive.toString());
+					const span = toggleBtn.querySelector('span');
+					const dot = toggleBtn.querySelector('div');
+					
+					if (newActive) {
+						toggleBtn.className = 'flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20';
+						if (span) span.textContent = 'System: Active';
+						if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+					} else {
+						toggleBtn.className = 'flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border bg-brand-coral/10 border-brand-coral/20 text-brand-coral hover:bg-brand-coral/20';
+						if (span) span.textContent = 'System: Closed';
+						if (dot) dot.className = 'w-2 h-2 rounded-full bg-brand-coral';
+					}
+				}
+			} catch (err) {
+				console.error('Failed to toggle election:', err);
+			} finally {
+				toggleBtn.style.opacity = '1';
+				toggleBtn.style.pointerEvents = 'auto';
+			}
+		});
+	</script>
 </AdminLayout>
 
 <style>

@@ -117,6 +117,48 @@ const sectionsWithCounts = await Promise.all((sections || []).map(async (section
 					/>
 				</div>
 				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Department</label>
+					<select 
+						name="program" 
+						required 
+						class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors text-white appearance-none cursor-pointer"
+					>
+						<option value="" disabled selected class="bg-brand-black">Select Department</option>
+						<optgroup label="Education (COED)" class="bg-brand-black">
+							<option value="BEED">BEED</option>
+							<option value="BSED - Math">BSED - Math</option>
+							<option value="BSED - English">BSED - English</option>
+							<option value="BTLED">BTLED</option>
+						</optgroup>
+						<optgroup label="Hospitality Management (CHTM)" class="bg-brand-black">
+							<option value="BSTM">BSTM</option>
+							<option value="BSHM">BSHM</option>
+						</optgroup>
+						<optgroup label="Arts & Sciences (CAS)" class="bg-brand-black">
+							<option value="BAEL">BAEL</option>
+							<option value="BAL">BAL</option>
+							<option value="BSP">BSP</option>
+						</optgroup>
+						<optgroup label="Agriculture & Forestry (CAFE)" class="bg-brand-black">
+							<option value="BSA">BSA</option>
+							<option value="BSF">BSF</option>
+							<option value="BSES">BSES</option>
+						</optgroup>
+						<optgroup label="Technology & Engineering (COTE)" class="bg-brand-black">
+							<option value="BIT-AT">BIT-AT</option>
+							<option value="BIT-ET">BIT-ET</option>
+							<option value="BIT-CT">BIT-CT</option>
+							<option value="BIT-GT">BIT-GT</option>
+							<option value="BIT-DT">BIT-DT</option>
+							<option value="BSIT">BSIT</option>
+							<option value="BSIE">BSIE</option>
+						</optgroup>
+						<optgroup label="Business & IT (CBIT)" class="bg-brand-black">
+							<option value="BSIT">BSIT</option>
+						</optgroup>
+					</select>
+				</div>
+				<div class="space-y-2">
 					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">CSV File</label>
 					<label class="block w-full border-2 border-dashed border-white/10 rounded-2xl p-8 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all cursor-pointer group">
 						<input 

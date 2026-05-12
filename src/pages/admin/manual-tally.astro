@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getSupabaseAdmin } from '../../lib/supabase';
-import { Landmark, Plus, Minus, RotateCcw, Save, Hash } from 'lucide-react';
+import { Landmark, Plus, Minus, RotateCcw, Save, Hash, RefreshCcw, Trophy } from 'lucide-react';
 
 // 1. Fetch Sections and Candidates
 const { data: manualSections } = await supabase.from('sections').select('*').eq('is_manual', true).order('name');
@@ -33,7 +33,7 @@ const sortedCandidates = [...(candidates || [])].sort((a, b) => {
 
 const collegeMapping: Record<string, string> = {
   'BEED': 'CoEd', 'BSED - Math': 'CoEd', 'BSED - English': 'CoEd', 'BTLED': 'CoEd',
-  'BSTM': 'CHMT', 'BSHM': 'CHMT',
+  'BSTM': 'CHTM', 'BSHM': 'CHTM',
   'BAEL': 'CAS', 'BAL': 'CAS', 'BSP': 'CAS',
   'BSA': 'CAFE', 'BSF': 'CAFE', 'BSES': 'CAFE',
   'BIT-AT': 'COTE', 'BIT-ET': 'COTE', 'BIT-CT': 'COTE', 'BIT-GT': 'COTE', 'BIT-DT': 'COTE', 'BSIT': 'COTE', 'BSIE': 'COTE',
@@ -52,28 +52,112 @@ const collegeMapping: Record<string, string> = {
 					<h2 class="font-outfit font-bold text-lg">Manual Standings</h2>
 				</div>
 
-				<div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-					{sortedCandidates.map(c => {
-						const total = manualTotals[c.id] || 0;
+				<div class="space-y-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+					{['Executive Board', 'Senatorial', 'House Representatives'].map(category => {
+						const filtered = sortedCandidates.filter(c => {
+							const pos = c.position.toLowerCase();
+							if (category === 'Executive Board') return pos === 'president' || pos === 'vice president';
+							if (category === 'Senatorial') return pos.includes('senator');
+							if (category === 'House Representatives') return pos.includes('hr');
+							return false;
+						});
+
+						if (filtered.length === 0) return null;
+
 						return (
-							<div class="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5">
-								<div class="flex flex-col">
-									<span class="text-[10px] font-bold uppercase tracking-widest text-white/20 leading-none mb-1">{c.position}</span>
-									<span class="text-xs font-semibold truncate max-w-[120px]">{c.name}</span>
-								</div>
-								<div class="text-lg font-outfit font-bold text-brand-coral" id={`total-${c.id}`}>{total}</div>
+							<div class="space-y-3">
+								<h3 class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 px-1">{category}</h3>
+								
+								{category === 'House Representatives' ? (
+									// Sub-group by College
+									(() => {
+										const collegeMapping = {
+											'BEED': 'COED', 'BSED': 'COED', 'BTLED': 'COED',
+											'BSTM': 'CHTM', 'BSHM': 'CHTM',
+											'BAEL': 'CAS', 'BAL': 'CAS', 'BSP': 'CAS',
+											'BSA': 'CAFE', 'BSF': 'CAFE', 'BSES': 'CAFE',
+											'BIT': 'COTE', 'BSIT': 'COTE', 'BSIE': 'COTE',
+										};
+										const colleges = ['COTE', 'CAFE', 'CHTM', 'CAS', 'COED', 'CBIT'];
+										
+										const hrByCollege = {};
+										filtered.forEach(c => {
+											let foundCollege = 'OTHER';
+											const up = c.position.toUpperCase();
+											for (const [prog, coll] of Object.entries(collegeMapping)) {
+												if (up.includes(prog)) { foundCollege = coll; break; }
+											}
+											if (foundCollege === 'OTHER') {
+												for (const coll of colleges) {
+													if (up.includes(coll)) { foundCollege = coll; break; }
+												}
+											}
+											if (!hrByCollege[foundCollege]) hrByCollege[foundCollege] = [];
+											hrByCollege[foundCollege].push(c);
+										});
+
+										return Object.keys(hrByCollege).sort().map(college => (
+											<div class="space-y-2 mt-4 first:mt-0">
+												<div class="flex items-center gap-2 mb-2">
+													<div class="w-1 h-1 rounded-full bg-brand-coral/40"></div>
+													<h4 class="text-[9px] font-bold text-white/30 uppercase tracking-widest">{college}</h4>
+												</div>
+												{hrByCollege[college].map(c => {
+													const total = manualTotals[c.id] || 0;
+													const siblings = sortedCandidates.filter(s => s.position === c.position);
+													const maxVotes = Math.max(...siblings.map(s => manualTotals[s.id] || 0));
+													const isLeader = total > 0 && total === maxVotes;
+													return (
+														<div class={`flex items-center justify-between p-3 rounded-xl border transition-all duration-500 ${isLeader ? 'bg-brand-coral/10 border-brand-coral/30 shadow-[0_0_15px_rgba(255,85,85,0.1)]' : 'bg-white/[0.02] border-white/5'}`}>
+															<div class="flex flex-col">
+																<div class="flex items-center gap-2 mb-1">
+																	<span class="text-[10px] font-bold uppercase tracking-widest text-white/40 leading-none">{c.position}</span>
+																	{isLeader && <Trophy size={10} class="text-brand-coral" />}
+																</div>
+																<span class={`text-xs font-semibold truncate max-w-[120px] ${isLeader ? 'text-white' : 'text-white/60'}`}>{c.name}</span>
+															</div>
+															<div class={`text-lg font-outfit font-bold ${isLeader ? 'text-brand-coral scale-110' : 'text-white/40'}`} id={`total-${c.id}`}>{total}</div>
+														</div>
+													);
+												})}
+											</div>
+										));
+									})()
+								) : (
+									<div class="space-y-2">
+										{filtered.map(c => {
+											const total = manualTotals[c.id] || 0;
+											const siblings = sortedCandidates.filter(s => s.position === c.position);
+											const maxVotes = Math.max(...siblings.map(s => manualTotals[s.id] || 0));
+											const isLeader = total > 0 && total === maxVotes;
+
+											return (
+												<div class={`flex items-center justify-between p-3 rounded-xl border transition-all duration-500 ${isLeader ? 'bg-brand-coral/10 border-brand-coral/30 shadow-[0_0_15px_rgba(255,85,85,0.1)]' : 'bg-white/[0.02] border-white/5'}`}>
+													<div class="flex flex-col">
+														<div class="flex items-center gap-2 mb-1">
+															<span class="text-[10px] font-bold uppercase tracking-widest text-white/40 leading-none">{c.position}</span>
+															{isLeader && <Trophy size={10} class="text-brand-coral" />}
+														</div>
+														<span class={`text-xs font-semibold truncate max-w-[120px] ${isLeader ? 'text-white' : 'text-white/60'}`}>{c.name}</span>
+													</div>
+													<div class={`text-lg font-outfit font-bold ${isLeader ? 'text-brand-coral scale-110' : 'text-white/40'}`} id={`total-${c.id}`}>{total}</div>
+												</div>
+											);
+										})}
+									</div>
+								)}
 							</div>
 						);
 					})}
 				</div>
 
 				<div class="mt-8 pt-8 border-t border-white/5">
-					<button 
-						onclick="window.location.reload()"
-						class="w-full py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+					<a 
+						href="/admin/consolidated"
+						class="w-full py-4 bg-brand-coral/10 hover:bg-brand-coral/20 border border-brand-coral/20 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 text-brand-coral"
 					>
-						<Save size={16} /> Sync All Totals
-					</button>
+						<RefreshCcw size={16} /> Sync to Consolidated
+					</a>
 				</div>
 			</div>
 		</div>
@@ -136,7 +220,7 @@ const collegeMapping: Record<string, string> = {
 								<option value="BSED - English">BSED - English</option>
 								<option value="BTLED">BTLED</option>
 							</optgroup>
-							<optgroup label="Hospitality Management (CHMT)">
+							<optgroup label="Hospitality Management (CHTM)">
 								<option value="BSTM">BSTM</option>
 								<option value="BSHM">BSHM</option>
 							</optgroup>

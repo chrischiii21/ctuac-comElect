@@ -1,0 +1,247 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { supabase } from '../../lib/supabase';
+import { Landmark, Trophy, Hash, RefreshCcw } from 'lucide-react';
+
+// 1. Fetch Candidates (Online Votes)
+const { data: candidates } = await supabase.from('candidates').select('*').order('position');
+
+// 2. Fetch Manual Tally Totals
+const { data: manualTallies } = await supabase.from('manual_tallies').select('candidate_id, votes');
+const manualTotals = manualTallies?.reduce((acc, t) => {
+  acc[t.candidate_id] = (acc[t.candidate_id] || 0) + t.votes;
+  return acc;
+}, {} as Record<string, number>) || {};
+
+// 3. Define Position Priority
+const positionPriority = (pos: string) => {
+  const p = pos.toLowerCase();
+  if (p === 'president') return 0;
+  if (p === 'vice president') return 1;
+  if (p.includes('senator')) return 2;
+  if (p.includes('hr')) return 3;
+  return 4;
+};
+
+// 4. Group and Combine
+const combinedResults = (candidates || []).map(c => ({
+  ...c,
+  online: c.vote_count,
+  manual: manualTotals[c.id] || 0,
+  total: c.vote_count + (manualTotals[c.id] || 0)
+})).sort((a, b) => {
+  const pA = positionPriority(a.position);
+  const pB = positionPriority(b.position);
+  if (pA !== pB) return pA - pB;
+  return b.total - a.total; // Within position, sort by total votes
+});
+
+const groupedResults = combinedResults.reduce((acc, c) => {
+  if (!acc[c.position]) acc[c.position] = [];
+  acc[c.position].push(c);
+  return acc;
+}, {} as Record<string, any[]>);
+
+const positions = Object.keys(groupedResults).sort((a,b) => positionPriority(a) - positionPriority(b));
+---
+
+<AdminLayout title="Consolidated Results">
+	<div class="space-y-12">
+		<header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+			<div>
+				<h1 class="text-4xl md:text-5xl font-outfit font-semibold tracking-tight">Consolidated Results</h1>
+				<p class="text-white/40 mt-2">Aggregated grand totals (Online + Manual Paper Tally).</p>
+			</div>
+			<button 
+				onclick="window.location.reload()" 
+				class="bg-white/5 border border-white/10 px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-sm font-bold uppercase tracking-widest"
+			>
+				<RefreshCcw size={18} />
+				<span>Sync & Refresh</span>
+			</button>
+		</header>
+
+		<div class="space-y-24">
+			{['Executive Board', 'Senatorial', 'House Representatives'].map(category => {
+				const categoryPositions = positions.filter(pos => {
+					const p = pos.toLowerCase();
+					if (category === 'Executive Board') return p === 'president' || p === 'vice president';
+					if (category === 'Senatorial') return p.includes('senator');
+					if (category === 'House Representatives') return p.includes('hr');
+					return false;
+				});
+
+				if (categoryPositions.length === 0) return null;
+
+				return (
+					<div class="space-y-12">
+						<div class="flex items-center gap-6">
+							<h2 class="text-3xl font-outfit font-bold tracking-tight text-white/80">{category}</h2>
+							<div class="h-px bg-white/10 flex-1"></div>
+						</div>
+
+						<div class="grid grid-cols-1 gap-16">
+							{category === 'House Representatives' ? (
+								// Sub-group HR by College using the collegeMapping
+								(() => {
+									const collegeMapping = {
+										'BEED': 'COED', 'BSED': 'COED', 'BTLED': 'COED',
+										'BSTM': 'CHTM', 'BSHM': 'CHTM',
+										'BAEL': 'CAS', 'BAL': 'CAS', 'BSP': 'CAS',
+										'BSA': 'CAFE', 'BSF': 'CAFE', 'BSES': 'CAFE',
+										'BIT': 'COTE', 'BSIT': 'COTE', 'BSIE': 'COTE',
+									};
+									const colleges = ['COTE', 'CAFE', 'CHTM', 'CAS', 'COED', 'CBIT'];
+									
+									// Group HR positions by college
+									const hrByCollege = {};
+									categoryPositions.forEach(p => {
+										let foundCollege = 'OTHER';
+										const up = p.toUpperCase();
+										
+										// Try mapping first
+										for (const [prog, coll] of Object.entries(collegeMapping)) {
+											if (up.includes(prog)) {
+												foundCollege = coll;
+												break;
+											}
+										}
+										
+										// If still other, try direct college name
+										if (foundCollege === 'OTHER') {
+											for (const c of colleges) {
+												if (up.includes(c)) {
+													foundCollege = c;
+													break;
+												}
+											}
+										}
+										
+										if (!hrByCollege[foundCollege]) hrByCollege[foundCollege] = [];
+										hrByCollege[foundCollege].push(p);
+									});
+
+									const sortedColleges = Object.keys(hrByCollege).sort();
+
+									return sortedColleges.map(college => (
+										<div class="space-y-8">
+											<div class="flex items-center gap-3">
+												<div class="w-2 h-2 rounded-full bg-brand-coral shadow-[0_0_10px_rgba(255,85,85,0.5)]"></div>
+												<h4 class="text-sm font-bold uppercase tracking-widest text-white/40">{college}</h4>
+											</div>
+											<div class="space-y-12">
+												{hrByCollege[college].map(pos => (
+													<section class="space-y-6">
+														<div class="flex items-center gap-4">
+															<h3 class="text-xs font-bold uppercase tracking-[0.3em] text-brand-coral/60 whitespace-nowrap bg-brand-coral/5 px-4 py-1.5 rounded-lg border border-brand-coral/20">{pos}</h3>
+															<div class="h-px bg-white/5 flex-1"></div>
+														</div>
+
+														<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+															{groupedResults[pos].map((c, index) => (
+																<div class={`bento-card group p-8 relative overflow-hidden transition-all duration-500 border-white/5 ${index === 0 && c.total > 0 ? 'bg-brand-coral/5 border-brand-coral/20 shadow-[0_0_40px_rgba(255,85,85,0.05)]' : ''}`}>
+																	{index === 0 && c.total > 0 && (
+																		<div class="absolute -right-4 -top-4 text-brand-coral/10 rotate-12 group-hover:rotate-0 transition-transform duration-700">
+																			<Trophy size={100} />
+																		</div>
+																	)}
+																	<div class="flex justify-between items-start mb-6">
+																		<div class="flex items-center gap-4">
+																			<div class={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl transition-all duration-500 ${index === 0 && c.total > 0 ? 'bg-brand-coral text-white' : 'bg-white/5 text-white/40 group-hover:bg-brand-coral group-hover:text-white'}`}>
+																				{c.name.charAt(0)}
+																			</div>
+																			<div>
+																				<h4 class={`font-bold text-lg transition-colors ${index === 0 && c.total > 0 ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>{c.name}</h4>
+																				<div class="text-[10px] uppercase tracking-widest text-white/20">Candidate ID: {c.id.slice(0,8)}</div>
+																			</div>
+																		</div>
+																	</div>
+																	<div class="grid grid-cols-3 gap-4">
+																		<div class="space-y-1">
+																			<div class="text-[8px] uppercase tracking-widest text-white/20">Online</div>
+																			<div class="text-xl font-outfit font-bold text-white/60">{c.online}</div>
+																		</div>
+																		<div class="space-y-1">
+																			<div class="text-[8px] uppercase tracking-widest text-white/20">Manual</div>
+																			<div class="text-xl font-outfit font-bold text-white/60">{c.manual}</div>
+																		</div>
+																		<div class="space-y-1">
+																			<div class={`text-[8px] uppercase tracking-widest ${index === 0 && c.total > 0 ? 'text-brand-coral' : 'text-brand-coral/40'}`}>Grand Total</div>
+																			<div class={`text-2xl font-outfit font-bold ${index === 0 && c.total > 0 ? 'text-brand-coral' : 'text-white/80'}`}>{c.total}</div>
+																		</div>
+																	</div>
+																	<div class="mt-6 w-full h-1 bg-white/5 rounded-full overflow-hidden">
+																		<div class={`h-full transition-all duration-1000 ${index === 0 && c.total > 0 ? 'bg-brand-coral' : 'bg-white/20'}`} style={`width: ${c.total > 0 ? (c.total / Math.max(...groupedResults[pos].map(x => x.total)) * 100) : 0}%`}></div>
+																	</div>
+																</div>
+															))}
+														</div>
+													</section>
+												))}
+											</div>
+										</div>
+									));
+								})()
+							) : (
+								categoryPositions.map(pos => (
+									<section class="space-y-6">
+										<div class="flex items-center gap-4">
+											<h3 class="text-xs font-bold uppercase tracking-[0.3em] text-brand-coral/60 whitespace-nowrap bg-brand-coral/5 px-4 py-1.5 rounded-lg border border-brand-coral/20">{pos}</h3>
+											<div class="h-px bg-white/5 flex-1"></div>
+										</div>
+
+										<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+											{groupedResults[pos].map((c, index) => (
+												<div class={`bento-card group p-8 relative overflow-hidden transition-all duration-500 border-white/5 ${index === 0 && c.total > 0 ? 'bg-brand-coral/5 border-brand-coral/20 shadow-[0_0_40px_rgba(255,85,85,0.05)]' : ''}`}>
+													{index === 0 && c.total > 0 && (
+														<div class="absolute -right-4 -top-4 text-brand-coral/10 rotate-12 group-hover:rotate-0 transition-transform duration-700">
+															<Trophy size={100} />
+														</div>
+													)}
+													
+													<div class="flex justify-between items-start mb-6">
+														<div class="flex items-center gap-4">
+															<div class={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl transition-all duration-500 ${index === 0 && c.total > 0 ? 'bg-brand-coral text-white' : 'bg-white/5 text-white/40 group-hover:bg-brand-coral group-hover:text-white'}`}>
+																{c.name.charAt(0)}
+															</div>
+															<div>
+																<h4 class={`font-bold text-lg transition-colors ${index === 0 && c.total > 0 ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>{c.name}</h4>
+																<div class="text-[10px] uppercase tracking-widest text-white/20">Candidate ID: {c.id.slice(0,8)}</div>
+															</div>
+														</div>
+													</div>
+
+													<div class="grid grid-cols-3 gap-4">
+														<div class="space-y-1">
+															<div class="text-[8px] uppercase tracking-widest text-white/20">Online</div>
+															<div class="text-xl font-outfit font-bold text-white/60">{c.online}</div>
+														</div>
+														<div class="space-y-1">
+															<div class="text-[8px] uppercase tracking-widest text-white/20">Manual</div>
+															<div class="text-xl font-outfit font-bold text-white/60">{c.manual}</div>
+														</div>
+														<div class="space-y-1">
+															<div class={`text-[8px] uppercase tracking-widest ${index === 0 && c.total > 0 ? 'text-brand-coral' : 'text-brand-coral/40'}`}>Grand Total</div>
+															<div class={`text-2xl font-outfit font-bold ${index === 0 && c.total > 0 ? 'text-brand-coral' : 'text-white/80'}`}>{c.total}</div>
+														</div>
+													</div>
+
+													<div class="mt-6 w-full h-1 bg-white/5 rounded-full overflow-hidden">
+														<div 
+															class={`h-full transition-all duration-1000 ${index === 0 && c.total > 0 ? 'bg-brand-coral' : 'bg-white/20'}`}
+															style={`width: ${c.total > 0 ? (c.total / Math.max(...groupedResults[pos].map(x => x.total)) * 100) : 0}%`}
+														></div>
+													</div>
+												</div>
+											))}
+										</div>
+									</section>
+								))
+							)}
+						</div>
+					</div>
+				);
+			})}
+		</div>
+	</div>
+</AdminLayout>

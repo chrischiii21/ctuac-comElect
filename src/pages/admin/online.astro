@@ -1,0 +1,309 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { supabase } from '../../lib/supabase';
+import { BarChart3, Users, Landmark, Clock, Upload, Trophy } from 'lucide-react';
+import VoteStandings from '../../components/VoteStandings';
+
+// Fetch initial stats
+const { data: sections } = await supabase
+  .from('sections')
+  .select('*')
+  .eq('is_manual', false)
+  .order('created_at', { ascending: false });
+const { data: candidates } = await supabase.from('candidates').select('*').order('position');
+const { count: totalStudents } = await supabase.from('students').select('*', { count: 'exact', head: true });
+const { count: totalVoted } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('has_voted', true);
+
+const turnoutPercentage = totalStudents ? Math.round((totalVoted || 0) / totalStudents * 100) : 0;
+
+// Group candidates by position (Moved to frontmatter for cleaner template)
+const groupedCandidates = (candidates || []).reduce((acc, c) => {
+	if (!acc[c.position]) acc[c.position] = [];
+	acc[c.position].push(c);
+	return acc;
+}, {} as Record<string, any[]>);
+// Fetch Election Status
+const { data: statusData } = await supabase.from('settings').select('value').eq('key', 'election_status').single();
+const isElectionActive = statusData?.value?.active ?? true;
+---
+
+<AdminLayout title="Admin Overview">
+	<div class="space-y-12">
+		<!-- Header Section -->
+		<header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+			<div>
+				<h1 class="text-4xl md:text-5xl font-outfit font-semibold tracking-tight">Online Standings</h1>
+				<p class="text-white/40 mt-2">Real-time counts for digital ballots only.</p>
+			</div>
+			<div class="flex flex-wrap gap-4">
+				<!-- Master Toggle Button -->
+				<button 
+					id="toggle-election-btn"
+					data-active={isElectionActive ? "true" : "false"}
+					class={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border ${isElectionActive ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20' : 'bg-brand-coral/10 border-brand-coral/20 text-brand-coral hover:bg-brand-coral/20'}`}
+				>
+					<div class={`w-2 h-2 rounded-full ${isElectionActive ? 'bg-emerald-500 animate-pulse' : 'bg-brand-coral'}`}></div>
+					<span>{isElectionActive ? 'System: Active' : 'System: Closed'}</span>
+				</button>
+
+				<a href="/admin/consolidated" class="bg-white/5 border border-white/10 px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-white/10 transition-all text-sm text-white/60">
+					<BarChart3 size={18} />
+					<span>Consolidated View</span>
+				</a>
+				<button class="btn-primary flex items-center gap-2" onclick="document.getElementById('upload-modal').showModal()">
+					<Upload size={18} />
+					<span>Import Masterlist</span>
+				</button>
+			</div>
+		</header>
+
+		<!-- Bento Grid Stats -->
+		<div class="bento-grid">
+			<div class="bento-card lg:col-span-2 flex flex-col justify-between group">
+				<div class="flex justify-between items-start">
+					<div class="p-3 bg-brand-coral/10 rounded-xl text-brand-coral group-hover:bg-brand-coral group-hover:text-white transition-colors duration-500">
+						<BarChart3 size={24} />
+					</div>
+					<div class="text-xs font-medium text-white/20 tracking-widest uppercase">Live Turnout</div>
+				</div>
+				<div class="mt-8">
+					<div class="flex items-baseline gap-2">
+						<span class="text-6xl font-outfit font-bold">{turnoutPercentage}%</span>
+						<span class="text-white/20 text-sm font-medium italic">of total votes</span>
+					</div>
+					<div class="w-full h-2 bg-white/5 rounded-full mt-6 overflow-hidden">
+						<div class="h-full bg-brand-coral transition-all duration-1000 ease-out shadow-[0_0_20px_rgba(255,85,85,0.5)]" style={`width: ${turnoutPercentage}%`}></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="bento-card flex flex-col justify-between">
+				<div class="p-3 bg-white/5 w-fit rounded-xl text-white/60">
+					<Users size={24} />
+				</div>
+				<div class="mt-8">
+					<div class="text-4xl font-outfit font-bold">{totalStudents || 0}</div>
+					<div class="text-white/30 text-xs font-medium uppercase tracking-widest mt-1">Total Voters</div>
+				</div>
+			</div>
+
+			<div class="bento-card flex flex-col justify-between">
+				<div class="p-3 bg-white/5 w-fit rounded-xl text-white/60">
+					<Landmark size={24} />
+				</div>
+				<div class="mt-8">
+					<div class="text-4xl font-outfit font-bold">{sections?.length || 0}</div>
+					<div class="text-white/30 text-xs font-medium uppercase tracking-widest mt-1">Active Sections</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Live Vote Tally -->
+		<VoteStandings initialCandidates={candidates || []} client:load />
+
+		<!-- Recent Activity / Sections List -->
+		<div class="space-y-6">
+				<h2 class="text-xl font-semibold flex items-center gap-2">
+					<Clock size={20} class="text-white/20" />
+					Section Performance
+				</h2>
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					{sections && sections.length > 0 ? (
+						await Promise.all(sections.map(async (section) => {
+							const { count: sTotal } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('section_id', section.id);
+							const { count: sVoted } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('section_id', section.id).eq('has_voted', true);
+							const sPercentage = sTotal ? Math.round((sVoted || 0) / sTotal * 100) : 0;
+
+							return (
+								<a href={`/admin/sections/${section.id}`} class="bento-card block hover:translate-y-[-4px]">
+									<div class="flex justify-between items-start mb-4">
+										<h3 class="font-semibold text-lg">{section.name}</h3>
+										<div class="status-badge status-badge-voted">Live</div>
+									</div>
+									<div class="text-xs text-white/40 font-mono mb-2 uppercase tracking-tighter">TOKEN: {section.token.slice(0, 8)}...</div>
+									<div class="flex items-center gap-2">
+										<div class="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+											<div class="h-full bg-brand-coral transition-all duration-500" style={`width: ${sPercentage}%`}></div>
+										</div>
+										<span class="text-[10px] font-mono text-white/30">{sPercentage}%</span>
+									</div>
+								</a>
+							);
+						}))
+					) : (
+						<div class="col-span-full bento-card p-12 flex flex-col items-center justify-center text-center space-y-4 border-dashed border-white/5 bg-transparent">
+							<div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-white/20">
+								<Clock size={32} />
+							</div>
+							<div class="space-y-1">
+								<h3 class="text-lg font-semibold text-white/60">No Active Sections</h3>
+								<p class="text-sm text-white/20">Import a student CSV list to start tracking turnout.</p>
+							</div>
+							<button onclick="document.getElementById('upload-modal').showModal()" class="text-xs font-bold text-brand-coral hover:underline uppercase tracking-widest pt-2">Import List →</button>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Upload Modal -->
+	<dialog id="upload-modal" class="bg-brand-black border border-white/10 rounded-3xl p-0 overflow-hidden max-w-md w-full">
+		<div class="p-8">
+			<h3 class="text-2xl font-outfit font-semibold mb-2 text-white">Import Student List</h3>
+			<p class="text-white/60 text-sm mb-6">Upload a CSV file containing student IDs and Full Names for a specific section.</p>
+			
+			<form action="/api/upload-section" method="POST" enctype="multipart/form-data" class="space-y-6">
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Section Name</label>
+					<input 
+						type="text" 
+						name="sectionName" 
+						placeholder="e.g. BSIT-4A" 
+						required 
+						class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors text-white placeholder:text-white/20"
+					/>
+				</div>
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Program / Department</label>
+					<select name="program" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-coral transition-colors appearance-none text-white cursor-pointer">
+						<option value="" disabled selected class="bg-brand-black text-white/20">Select Department</option>
+						<optgroup label="College of Education (CoEd)" class="bg-brand-black">
+							<option value="BEED">BEED</option>
+							<option value="BSED - Math">BSED - Math</option>
+							<option value="BSED - English">BSED - English</option>
+							<option value="BTLED">BTLED</option>
+						</optgroup>
+						<optgroup label="Hospitality Management (CHTM)" class="bg-brand-black">
+							<option value="BSTM">BSTM</option>
+							<option value="BSHM">BSHM</option>
+						</optgroup>
+						<optgroup label="Arts and Sciences (CAS)" class="bg-brand-black">
+							<option value="BAEL">BAEL</option>
+							<option value="BAL">BAL</option>
+							<option value="BSP">BSP</option>
+						</optgroup>
+						<optgroup label="Agriculture & Forestry (CAFE)" class="bg-brand-black">
+							<option value="BSA">BSA</option>
+							<option value="BSF">BSF</option>
+							<option value="BSES">BSES</option>
+						</optgroup>
+						<optgroup label="Technology & Engineering (COTE)" class="bg-brand-black">
+							<option value="BIT-AT">BIT-AT</option>
+							<option value="BIT-ET">BIT-ET</option>
+							<option value="BIT-CT">BIT-CT</option>
+							<option value="BIT-GT">BIT-GT</option>
+							<option value="BIT-DT">BIT-DT</option>
+							<option value="BSIT">BSIT</option>
+							<option value="BSIE">BSIE</option>
+						</optgroup>
+					</select>
+				</div>
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">CSV File</label>
+					<label class="block w-full border-2 border-dashed border-white/10 rounded-2xl p-8 hover:border-brand-coral/50 hover:bg-brand-coral/5 transition-all cursor-pointer group">
+						<input 
+							type="file" 
+							name="csvFile" 
+							accept=".csv" 
+							required 
+							class="hidden" 
+							onchange="const span = document.getElementById('filename-display'); span.textContent = this.files[0].name; span.classList.add('text-brand-coral'); span.classList.remove('text-white/40');"
+						/>
+						<div class="flex flex-col items-center gap-2 text-center">
+							<Upload class="text-white/20 group-hover:text-brand-coral transition-colors" />
+							<span id="filename-display" class="text-sm text-white/40 group-hover:text-white/60 transition-colors truncate max-w-full px-4">
+								Drop CSV or Click to Browse
+							</span>
+						</div>
+					</label>
+				</div>
+
+				<div class="flex gap-4 pt-4">
+					<button type="button" onclick="this.closest('dialog').close()" class="flex-1 px-6 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-colors">Cancel</button>
+					<button type="submit" class="flex-1 btn-primary">Start Import</button>
+				</div>
+			</form>
+		</div>
+	</dialog>
+	<script>
+		const toggleBtn = document.getElementById('toggle-election-btn');
+		
+		toggleBtn?.addEventListener('click', async () => {
+			const isActive = toggleBtn.getAttribute('data-active') === 'true';
+			const newActive = !isActive;
+			
+			// Show loading state
+			toggleBtn.style.opacity = '0.5';
+			toggleBtn.style.pointerEvents = 'none';
+			
+			try {
+				const res = await fetch('/api/toggle-election', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ active: newActive })
+				});
+				
+				if (res.ok) {
+					// Update UI
+					toggleBtn.setAttribute('data-active', newActive.toString());
+					const span = toggleBtn.querySelector('span');
+					const dot = toggleBtn.querySelector('div');
+					
+					if (newActive) {
+						toggleBtn.className = 'flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20';
+						if (span) span.textContent = 'System: Active';
+						if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+					} else {
+						toggleBtn.className = 'flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all text-sm border bg-brand-coral/10 border-brand-coral/20 text-brand-coral hover:bg-brand-coral/20';
+						if (span) span.textContent = 'System: Closed';
+						if (dot) dot.className = 'w-2 h-2 rounded-full bg-brand-coral';
+					}
+				}
+			} catch (err) {
+				console.error('Failed to toggle election:', err);
+			} finally {
+				toggleBtn.style.opacity = '1';
+				toggleBtn.style.pointerEvents = 'auto';
+			}
+		});
+	</script>
+</AdminLayout>
+
+<style>
+	select {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white' opacity='0.2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 1rem center;
+		background-size: 1.5em;
+	}
+
+	select option, select optgroup {
+		background-color: #0A0A0A;
+		color: white;
+		padding: 1rem;
+	}
+
+	select optgroup {
+		font-weight: bold;
+		color: #FF5555; /* brand-coral */
+		font-style: normal;
+		margin-top: 0.5rem;
+	}
+</style>
+
+<script>
+	// Modal backdrop click to close
+	const modal = document.getElementById('upload-modal') as HTMLDialogElement;
+	modal?.addEventListener('click', (e) => {
+		const dialogDimensions = modal.getBoundingClientRect();
+		if (
+			e.clientX < dialogDimensions.left ||
+			e.clientX > dialogDimensions.right ||
+			e.clientY < dialogDimensions.top ||
+			e.clientY > dialogDimensions.bottom
+		) {
+			modal.close();
+		}
+	});
+</script>

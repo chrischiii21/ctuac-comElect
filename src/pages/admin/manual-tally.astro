@@ -412,7 +412,13 @@ const collegeMapping: Record<string, string> = {
 		const filtered = candidates.filter(c => {
 			const pos = c.position.toLowerCase();
 			if (pos === 'president' || pos === 'vice president') return true;
-			if (pos.includes('senator')) return pos.includes(sectionCollege.toLowerCase());
+			if (pos.includes('senator')) {
+				const college = sectionCollege.toLowerCase();
+				if (college === 'chtm') {
+					return pos.includes('chtm') || pos.includes('chmt');
+				}
+				return pos.includes(college);
+			}
 			if (pos.includes('hr')) return pos.includes(currentProgram.toLowerCase());
 			return false;
 		});

@@ -81,8 +81,7 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 		<VoteStandings initialCandidates={candidates || []} client:load />
 
 		<!-- Recent Activity / Sections List -->
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-			<div class="lg:col-span-2 space-y-6">
+		<div class="space-y-6">
 				<h2 class="text-xl font-semibold flex items-center gap-2">
 					<Clock size={20} class="text-white/20" />
 					Section Performance
@@ -124,30 +123,6 @@ const groupedCandidates = (candidates || []).reduce((acc, c) => {
 					)}
 				</div>
 			</div>
-
-			<aside class="bento-card h-fit sticky top-28">
-				<h3 class="font-semibold mb-4 text-brand-coral">Quick Actions</h3>
-				<ul class="space-y-4">
-					<li>
-						<a href="#" class="text-sm text-white/60 hover:text-white flex items-center justify-between group">
-							Export Results
-							<span class="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-						</a>
-					</li>
-					<li>
-						<a href="#" class="text-sm text-white/60 hover:text-white flex items-center justify-between group">
-							Reset All Votes
-							<span class="opacity-0 group-hover:opacity-100 transition-opacity text-red-500">×</span>
-						</a>
-					</li>
-					<li>
-						<a href="#" class="text-sm text-white/60 hover:text-white flex items-center justify-between group">
-							System Settings
-							<span class="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-						</a>
-					</li>
-				</ul>
-			</aside>
 		</div>
 	</div>
 

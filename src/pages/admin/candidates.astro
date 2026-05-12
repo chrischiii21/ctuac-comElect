@@ -17,13 +17,31 @@ if (Astro.request.method === 'POST') {
 		const position = formData.get('position');
 		const image_url = formData.get('image_url');
 		
-		await supabase.from('candidates').insert([{ name, position, image_url, vote_count: 0 }]);
+		const admin = getSupabaseAdmin();
+		const { error } = await admin.from('candidates').insert([{ 
+			name, 
+			position, 
+			image_url: image_url || null, 
+			vote_count: 0 
+		}]);
+
+		if (error) {
+			console.error('Error adding candidate:', error);
+			return Astro.redirect('/admin/candidates?error=insert_failed');
+		}
+
 		return Astro.redirect('/admin/candidates?success=candidate_added');
 	}
 
 	if (action === 'delete') {
 		const admin = getSupabaseAdmin();
-		await admin.from('candidates').delete().eq('id', id);
+		const { error } = await admin.from('candidates').delete().eq('id', id);
+
+		if (error) {
+			console.error('Error deleting candidate:', error);
+			return Astro.redirect('/admin/candidates?error=delete_failed');
+		}
+
 		return Astro.redirect('/admin/candidates?success=candidate_deleted');
 	}
 }
@@ -83,13 +101,13 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 										</div>
 									</div>
 									<div class="flex items-center gap-2">
-										<form method="POST">
-											<input type="hidden" name="action" value="delete" />
-											<input type="hidden" name="id" value={candidate.id} />
-											<button type="submit" class="p-2 text-white/20 hover:text-red-500 transition-colors">
-												<Trash2 size={18} />
-											</button>
-										</form>
+										<button 
+											class="p-2 text-white/20 hover:text-red-500 transition-colors delete-btn"
+											data-id={candidate.id}
+											data-name={candidate.name}
+										>
+											<Trash2 size={18} />
+										</button>
 									</div>
 								</div>
 							))}
@@ -130,9 +148,9 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 				<div class="space-y-2">
 					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Position</label>
 					<select name="position" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors appearance-none text-white">
-						<option value="President" class="bg-brand-black">President</option>
-						<option value="Vice President" class="bg-brand-black">Vice President</option>
-						<option value="CoEd Senator" class="bg-brand-black">CoEd Senator</option>
+						<option value="President">President</option>
+						<option value="Vice President">Vice President</option>
+						<option value="CoEd Senator">CoEd Senator</option>
 						<option value="CHMT Senator">CHMT Senator</option>
 						<option value="CAS Senator">CAS Senator</option>
 						<option value="CAFE Senator">CAFE Senator</option>
@@ -158,12 +176,23 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 						<option value="BSIE HR">BSIE HR</option>
 					</select>
 				</div>
+				<div class="space-y-2">
+					<label class="text-[10px] font-bold uppercase tracking-widest text-white/80">Image URL (Optional)</label>
+					<input 
+						type="url" 
+						name="image_url" 
+						placeholder="https://..." 
+						class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors text-white placeholder:text-white/20" 
+					/>
+				</div>
 				<div class="flex gap-4 pt-4">
 					<button type="button" onclick="this.closest('dialog').close()" class="flex-1 px-6 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-colors">Cancel</button>
 					<button type="submit" class="flex-1 btn-primary">Add to Slate</button>
 				</div>
 			</form>
 		</div>
+	</dialog>
+
 	<!-- Delete Candidate Modal -->
 	<dialog id="delete-candidate-modal" class="bg-brand-black border border-white/10 rounded-3xl p-0 overflow-hidden max-w-md w-full">
 		<div class="p-8">
@@ -190,4 +219,49 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 		background-position: right 1rem center;
 		background-size: 1.5em;
 	}
+
+	select option {
+		background-color: #0A0A0A; /* brand-black equivalent */
+		color: white;
+		padding: 1rem;
+	}
 </style>
+
+<script>
+	// Handle Delete Modal
+	const deleteButtons = document.querySelectorAll('.delete-btn');
+	const deleteModal = document.getElementById('delete-candidate-modal') as HTMLDialogElement;
+	
+	deleteButtons.forEach(btn => {
+		btn.addEventListener('click', () => {
+			const id = btn.getAttribute('data-id');
+			const name = btn.getAttribute('data-name');
+			
+			if (deleteModal) {
+				const nameSpan = deleteModal.querySelector('.candidate-name');
+				const idInput = deleteModal.querySelector('input[name="id"]') as HTMLInputElement;
+				
+				if (nameSpan) nameSpan.textContent = name;
+				if (idInput) idInput.value = id || '';
+				
+				deleteModal.showModal();
+			}
+		});
+	});
+
+	// Close modals on backdrop click
+	const modals = document.querySelectorAll('dialog');
+	modals.forEach(modal => {
+		modal.addEventListener('click', (e) => {
+			const rect = modal.getBoundingClientRect();
+			if (
+				e.clientX < rect.left ||
+				e.clientX > rect.right ||
+				e.clientY < rect.top ||
+				e.clientY > rect.bottom
+			) {
+				modal.close();
+			}
+		});
+	});
+</script>

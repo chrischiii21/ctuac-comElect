@@ -12,6 +12,8 @@ export function checkUrlMessages() {
     if (success === 'true') message = 'Import successful!';
     if (success === 'voted') message = 'Your vote has been cast!';
     if (success === 'deleted') message = 'Section successfully deleted!';
+    if (success === 'candidate_added') message = 'Candidate added to slate!';
+    if (success === 'candidate_deleted') message = 'Candidate removed from slate!';
     
     toast.success(message, {
       description: 'The changes have been saved to the database.',
@@ -24,6 +26,8 @@ export function checkUrlMessages() {
   if (error) {
     let message = 'An error occurred.';
     if (error === 'already_voted') message = 'You have already voted!';
+    if (error === 'insert_failed') message = 'Failed to add candidate.';
+    if (error === 'delete_failed') message = 'Failed to remove candidate.';
     
     toast.error(message, {
       description: 'Please contact an administrator if this is a mistake.',

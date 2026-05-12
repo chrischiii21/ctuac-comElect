@@ -1,6 +1,6 @@
 ---
 import VoterLayout from '../../../layouts/VoterLayout.astro';
-import { supabase } from '../../../lib/supabase';
+import { supabase, getSupabaseAdmin } from '../../../lib/supabase';
 import { Check, Vote, Landmark } from 'lucide-react';
 
 const { token } = Astro.params;
@@ -31,25 +31,36 @@ const groupedCandidates = candidates?.reduce((acc, candidate) => {
 // 3. Handle Voting
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
-  const selectedCandidates = formData.getAll('candidateId');
+  // Collect all selected candidate IDs from all position groups
+  const selectedCandidates = Array.from(formData.entries())
+    .filter(([name]) => name.startsWith('candidate-'))
+    .map(([_, value]) => value as string);
 
   if (selectedCandidates.length > 0) {
-    // Start a simple transaction-like process (sequential updates for simplicity)
+    const admin = getSupabaseAdmin();
     
-    // Update candidate counts
+    // Update candidate counts using admin client to ensure permissions
     for (const id of selectedCandidates) {
-      const { error: rpcError } = await supabase.rpc('increment_vote', { candidate_id: id });
-      if (rpcError) console.error('Error incrementing vote:', rpcError);
+      await admin.rpc('increment_vote', { candidate_id: id });
+      
+      // NEW: Record vote in the votes table for per-section breakdown
+      const { error: vError } = await admin.from('votes').insert({
+        section_id: section.id,
+        candidate_id: id
+      });
+      if (vError) console.error(`Error recording vote for ${id}:`, vError);
     }
 
-    // Mark student as voted
-    const { error } = await supabase
+    // Mark student as voted using admin client
+    const { error } = await admin
       .from('students')
       .update({ has_voted: true, voted_at: new Date().toISOString() })
       .eq('student_id', studentId);
 
     if (!error) {
       return Astro.redirect(`/section/${token}?success=voted`);
+    } else {
+      console.error('Error marking student as voted:', error);
     }
   }
 }
@@ -81,7 +92,7 @@ if (Astro.request.method === 'POST') {
 							<label class="relative group cursor-pointer">
 								<input 
 									type="radio" 
-									name={`candidateId`} 
+									name={`candidate-${position}`} 
 									value={candidate.id} 
 									class="peer sr-only" 
 									required

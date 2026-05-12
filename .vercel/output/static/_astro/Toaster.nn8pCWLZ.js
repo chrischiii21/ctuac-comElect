@@ -1,1 +1,0 @@
-import{j as r}from"./jsx-runtime.u17CrQMm.js";import{T as o}from"./index.C-KJCKnQ.js";function s(){return r.jsx(o,{position:"top-right",theme:"dark",expand:!0,richColors:!0,toastOptions:{style:{background:"rgba(10, 10, 10, 0.8)",backdropFilter:"blur(10px)",border:"1px solid rgba(255, 255, 255, 0.1)",borderRadius:"16px",color:"white"}}})}export{s as default};

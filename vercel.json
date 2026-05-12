@@ -1,6 +1,0 @@
-{
-  "framework": "astro",
-  "buildCommand": "bun run build",
-  "outputDirectory": ".vercel/output",
-  "installCommand": "bun install"
-}

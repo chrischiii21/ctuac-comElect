@@ -2,7 +2,7 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { supabase, getSupabaseAdmin } from '../../../lib/supabase';
 import SectionStatus from '../../../components/SectionStatus';
-import { ChevronLeft, Share2, Trash2 } from 'lucide-react';
+import { ChevronLeft, Share2, Trash2, RefreshCcw } from 'lucide-react';
 
 const { id } = Astro.params;
 
@@ -17,15 +17,14 @@ if (sectionError || !section) {
   return Astro.redirect('/404');
 }
 
-// 2. Handle Deletion (Using Admin Client)
+// 2. Handle Actions (Delete / Reset)
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const action = formData.get('action');
+  const adminSupabase = getSupabaseAdmin();
 
-  if (action === 'delete') {
-    const adminSupabase = getSupabaseAdmin();
-    
-    // 1. Fetch all votes from this section to deduct them from candidates
+  if (action === 'delete' || action === 'reset') {
+    // 1. Fetch all online votes from this section to deduct them from candidates
     const { data: votes } = await adminSupabase.from('votes').select('candidate_id').eq('section_id', id);
     
     if (votes && votes.length > 0) {
@@ -36,7 +35,6 @@ if (Astro.request.method === 'POST') {
 
       // Deduct votes from candidates
       for (const [candId, count] of Object.entries(tallies)) {
-        // We use a direct update here for simplicity, but an RPC is recommended for production
         const { data: cand } = await adminSupabase.from('candidates').select('vote_count').eq('id', candId).single();
         if (cand) {
           await adminSupabase.from('candidates')
@@ -46,15 +44,26 @@ if (Astro.request.method === 'POST') {
       }
     }
 
-    // 2. Explicitly delete votes from this section
+    // 2. Clear associated data
     await adminSupabase.from('votes').delete().eq('section_id', id);
+    await adminSupabase.from('manual_tallies').delete().eq('section_id', id);
 
-    const { error: deleteError } = await adminSupabase.from('sections').delete().eq('id', id);
-    
-    if (deleteError) {
-      console.error('Delete Error:', deleteError);
+    if (action === 'delete') {
+      const { error: deleteError } = await adminSupabase.from('sections').delete().eq('id', id);
+      if (deleteError) {
+        console.error('Delete Error:', deleteError);
+      } else {
+        return Astro.redirect('/admin?success=deleted');
+      }
     } else {
-      return Astro.redirect('/admin?success=deleted');
+      // RESET action
+      // 3. Reset student statuses
+      await adminSupabase
+        .from('students')
+        .update({ has_voted: false, voted_at: null })
+        .eq('section_id', id);
+
+      return Astro.redirect(`/admin/sections/${id}?success=reset`);
     }
   }
 }
@@ -176,6 +185,15 @@ const sortedPositions = Object.keys(groupedResults).sort((a, b) => {
 					<Share2 size={16} />
 					Copy Voting Link
 				</button>
+
+				<button 
+					type="button"
+					class="px-4 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl hover:bg-amber-500/20 transition-colors flex items-center gap-2 text-sm"
+					onclick="document.getElementById('reset-modal').showModal()"
+				>
+					<RefreshCcw size={16} />
+					Reset Votes
+				</button>
 				
 				<button 
 					type="button"
@@ -187,6 +205,23 @@ const sortedPositions = Object.keys(groupedResults).sort((a, b) => {
 				</button>
 			</div>
 		</header>
+
+		<!-- Reset Confirmation Modal -->
+		<dialog id="reset-modal" class="bg-brand-black border border-white/10 rounded-3xl p-0 overflow-hidden max-w-md w-full">
+			<div class="p-8">
+				<div class="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mb-6">
+					<RefreshCcw size={32} />
+				</div>
+				<h3 class="text-2xl font-outfit font-semibold mb-2 text-white">Reset Section Votes?</h3>
+				<p class="text-white/60 text-sm mb-8">This will clear all votes cast by this section and deduct them from the candidate grand totals. Students will be able to vote again.</p>
+				
+				<form method="POST" class="flex gap-4">
+					<input type="hidden" name="action" value="reset" />
+					<button type="button" onclick="this.closest('dialog').close()" class="flex-1 px-6 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 transition-colors">Cancel</button>
+					<button type="submit" class="flex-1 bg-amber-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-amber-600 transition-colors">Yes, Reset All</button>
+				</form>
+			</div>
+		</dialog>
 
 		<!-- Delete Confirmation Modal -->
 		<dialog id="delete-modal" class="bg-brand-black border border-white/10 rounded-3xl p-0 overflow-hidden max-w-md w-full">
